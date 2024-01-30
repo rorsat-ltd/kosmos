@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kosmos
+    part: server
+  name: kosmos-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kosmos
+      part: server
+  template:
+    metadata:
+      annotations:
+        cni.projectcalico.org/ipv6pools: '["default-ipv6-ippool"]'
+      labels:
+        app: kosmos
+        part: server
+    spec:
+      containers:
+        - env:
+            - name: RUST_LOG
+              value: "info"
+            - name: LISTEN_ADDRESS
+              value: "[::]:10800"
+            - name: NAT64_PREFIX
+              value: "2a0d:1a40:7900:6::/64"
+          envFrom:
+            - secretRef:
+                name: kosmos-config
+          image: as207960/kosmos:(version)
+          imagePullPolicy: IfNotPresent
+          name: server
+          command: ["/kosmos_server"]
+          ports:
+            - containerPort: 10800
+              protocol: TCP

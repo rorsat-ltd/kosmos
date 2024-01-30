@@ -12,6 +12,7 @@ struct Args {
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
+    openssl_probe::init_ssl_cert_env_vars();
     let args = Args::parse();
 
     if !tokio::task::block_in_place(|| {

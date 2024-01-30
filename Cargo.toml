@@ -21,7 +21,6 @@ pretty_env_logger = "0.5.0"
 tokio = { version = "1.35.1", features = ["net", "rt-multi-thread", "macros", "io-util"] }
 diesel = { version = "2.1.0", features = ["uuid", "chrono"] }
 diesel_migrations = "2.1.0"
-diesel-async = { version = "0.4.1", features = ["postgres", "async-connection-wrapper", "tokio", "mobc"] }
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 uuid = { version = "1.7.0", features = ["v4", "serde"] }
 reqwest = "0.11.14"
@@ -35,3 +34,12 @@ ipnetwork = "0.20.0"
 base64 = "0.21.7"
 openssl = "0.10"
 openssl-probe = "0.1.2"
+tokio-postgres = "0.7.10"
+async-trait = "0.1.77"
+futures-util = "0.3.30"
+postgres-openssl = "0.5.0"
+
+[dependencies.diesel-async]
+version = "0.4.1"
+features = ["postgres", "async-connection-wrapper", "tokio", "mobc", "tls-openssl"]
+git = "https://github.com/AS207960/diesel_async.git"
