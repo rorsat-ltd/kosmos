@@ -410,6 +410,7 @@ checksum = "353e814f3bf30847a0d694ef03091cd2246543ff6e7c3535b83c226ebb980048"
 dependencies = [
  "async-trait",
  "base64",
+ "celery-codegen",
  "chrono",
  "colored",
  "futures",
@@ -429,6 +430,17 @@ dependencies = [
  "tokio-reactor-trait",
  "tokio-stream",
  "uuid",
+]
+
+[[package]]
+name = "celery-codegen"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac0f4f3440943210cc64fab5a5feb8d8ef021bf248a33cc37840185bfcf1710e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

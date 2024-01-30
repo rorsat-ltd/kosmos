@@ -2,8 +2,15 @@
 name = "kosmos"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/AS207960/kosmos"
+license = "MIT"
+authors = ["Q Misell <q@as207960.net>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+panic = "abort"
 
 [dependencies]
 byteorder = "1.5.0"
@@ -23,7 +30,7 @@ serde_json = "1.0.113"
 serde = { version = "1.0.196", features = ["serde_derive"] }
 sha2 = "0.10.8"
 hmac = "0.12.1"
-celery = { version = "0.5.5", default-features = false, features = ["native-tls"] }
+celery = { version = "0.5.5", default-features = false, features = ["native-tls", "codegen"] }
 ipnetwork = "0.20.0"
 base64 = "0.21.7"
 openssl = "0.10"

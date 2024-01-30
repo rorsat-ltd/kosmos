@@ -34,6 +34,7 @@ ENV X86_64_UNKNOWN_LINUX_MUSL_OPENSSL_DIR=/usr/local/musl/ \
 RUN USER=root cargo new kosmos
 WORKDIR /usr/src/kosmos
 COPY Cargo.toml Cargo.lock ./
+COPY migrations ./migrations
 COPY src ./src
 RUN cargo install --target x86_64-unknown-linux-musl --path .
 
