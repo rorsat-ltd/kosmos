@@ -39,7 +39,6 @@ pub async fn receive_mt(
                 return;
             }
         };
-        info!("Connection received from {}", peer_address);
 
         let real_ip = match (peer_address.ip(), nat64_prefix) {
             (std::net::IpAddr::V4(a), _) => std::net::IpAddr::V4(a),
@@ -55,6 +54,7 @@ pub async fn receive_mt(
                 }
             },
         };
+        info!("Connection received from {} ({})", std::net::SocketAddr::new(real_ip, peer_address.port()), peer_address);
 
         if real_ip != IRIDIUM_SOURCE_IP {
             warn!("Connection not from Iridium, dropping");

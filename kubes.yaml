@@ -54,6 +54,51 @@ spec:
         - protocol: TCP
           port: 10800
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kosmos
+    part: worker
+  name: kosmos-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kosmos
+      part: worker
+  template:
+    metadata:
+      annotations:
+        cni.projectcalico.org/ipv6pools: '["default-ipv6-ippool"]'
+      labels:
+        app: kosmos
+        part: worker
+    spec:
+      containers:
+        - env:
+            - name: RUST_LOG
+              value: "info"
+          envFrom:
+            - secretRef:
+                name: kosmos-config
+          image: as207960/kosmos:(version)
+          imagePullPolicy: IfNotPresent
+          name: server
+          command: ["/kosmos_worker"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kosmos-worker
+spec:
+  podSelector:
+    matchLabels:
+      app: kosmos
+      part: worker
+  policyTypes:
+    - Ingress
+---
 apiVersion: v1
 kind: Service
 metadata:
