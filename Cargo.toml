@@ -17,12 +17,14 @@ diesel_migrations = "2.1.0"
 diesel-async = { version = "0.4.1", features = ["postgres", "async-connection-wrapper", "tokio", "mobc"] }
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 uuid = { version = "1.7.0", features = ["v4", "serde"] }
-reqwest = "0.11.23"
+reqwest = "0.11.14"
 mobc = "0.8.3"
 serde_json = "1.0.113"
 serde = { version = "1.0.196", features = ["serde_derive"] }
 sha2 = "0.10.8"
 hmac = "0.12.1"
-celery = "0.5.5"
+celery = { version = "0.5.5", default-features = false, features = ["native-tls"] }
 ipnetwork = "0.20.0"
 base64 = "0.21.7"
+openssl = "0.10"
+openssl-probe = "0.1.2"
