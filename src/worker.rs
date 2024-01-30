@@ -1,99 +1,77 @@
+use celery::prelude::*;
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, SelectableHelper};
-use diesel_async::{AsyncConnection, RunQueryDsl};
-use diesel_async::scoped_futures::ScopedFutureExt;
+use diesel_async::RunQueryDsl;
 use hmac::Mac;
+use base64::prelude::*;
 
 type HmacSha256 = hmac::Hmac<sha2::Sha256>;
 
-pub async fn run_worker(db_pool: crate::DBPool) {
-    let client = std::sync::Arc::new(reqwest::ClientBuilder::new()
+static HTTP_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+static DB_POOL: std::sync::OnceLock<crate::DBPool> = std::sync::OnceLock::new();
+
+pub async fn run_worker(amqp_addr: String, db_pool: crate::DBPool) {
+    let client = reqwest::ClientBuilder::new()
         .user_agent(format!("Kosmos {}", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(30))
         .connect_timeout(std::time::Duration::from_secs(10))
-        .build().unwrap()
-    );
+        .build().unwrap();
 
-    let mut db_conn = match db_pool.get().await {
-        Ok(c) => c,
+    let celery_app = match celery::app!(
+        broker = AMQP { amqp_addr },
+        tasks = [process_message],
+        task_routes = [],
+        acks_late = true,
+    ).await {
+        Ok(a) => a,
         Err(err) => {
-            error!("Failed to get DB connection: {}", err);
+            error!("Failed to setup celery: {}", err);
             return;
         }
     };
+
+    HTTP_CLIENT.set(client).unwrap();
+    DB_POOL.set(db_pool).unwrap();
 
     info!("Kosmos worker running");
 
-    loop {
-        let db_pool = db_pool.clone();
-        let client = client.clone();
-        if let Err(err) = db_conn.transaction(|db_conn| async move {
-            let messages = crate::schema::mo_messages::dsl::mo_messages.filter(
-                crate::schema::mo_messages::dsl::processing_status.eq(crate::models::ProcessingStatus::Received)
-            ).get_results::<crate::models::MOMessage>(db_conn).await?;
-
-            let ids = messages.iter().map(|m| m.id).collect::<Vec<_>>();
-            diesel::update(crate::schema::mo_messages::dsl::mo_messages)
-                .filter(crate::schema::mo_messages::dsl::id.eq_any(&ids))
-                .set(crate::schema::mo_messages::dsl::processing_status.eq(crate::models::ProcessingStatus::Processing))
-                .execute(db_conn).await?;
-
-            for m in messages {
-                let new_db_conn = db_pool.get().await.map_err(|e| {
-                    diesel::result::Error::QueryBuilderError(Box::new(e))
-                })?;
-                tokio::spawn(process_message(m, new_db_conn, client.clone()));
-            }
-
-            Ok::<(), diesel::result::Error>(())
-        }.scope_boxed()).await {
-            error!("Failed to query database for messages: {}", err);
-            return;
-        }
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await
-    }
+    celery_app.consume().await.unwrap();
 }
 
-async fn process_message(message: crate::models::MOMessage, mut db_conn: crate::DBConn, client: std::sync::Arc<reqwest::Client>) {
-    let id = message.id;
+async fn set_message_status(message_id: uuid::Uuid, status: crate::models::ProcessingStatus, db_conn: &mut crate::DBConn) -> TaskResult<()> {
+    diesel::update(crate::schema::mo_messages::dsl::mo_messages)
+        .filter(crate::schema::mo_messages::dsl::id.eq(message_id))
+        .set(crate::schema::mo_messages::dsl::processing_status.eq(status))
+        .execute(db_conn).await
+        .with_expected_err(|| "Failed to update message")?;
+    Ok(())
+}
+
+#[celery::task(bind = true)]
+pub async fn process_message(task: &Self, message_id: uuid::Uuid) -> TaskResult<()> {
+    let mut db_conn = DB_POOL.get().unwrap().get().await
+        .with_expected_err(|| "Failed to get DB connection")?;
+
+    let message = crate::schema::mo_messages::dsl::mo_messages.filter(
+        crate::schema::mo_messages::dsl::id.eq(message_id)
+    ).get_result::<crate::models::MOMessage>(&mut db_conn).await
+        .with_expected_err(|| "Failed to get message from DB")?;
+
     if !matches!(message.session_status, crate::models::SessionStatus::Successful |
         crate::models::SessionStatus::SuccessfulTooLarge | crate::models::SessionStatus::SuccessfulUnacceptableLocation) {
-        if let Err(err) = diesel::update(crate::schema::mo_messages::dsl::mo_messages)
-            .filter(crate::schema::mo_messages::dsl::id.eq(id))
-            .set(crate::schema::mo_messages::dsl::processing_status.eq(crate::models::ProcessingStatus::Done))
-            .execute(&mut db_conn).await {
-            error!("Failed to update message: {}", err);
-            return;
-        }
+        set_message_status(message_id, crate::models::ProcessingStatus::Done, &mut db_conn).await?;
+        return Ok(());
     }
 
-    let new_status = if _process_message(message, &mut db_conn, client).await {
-        crate::models::ProcessingStatus::Done
-    } else {
-        crate::models::ProcessingStatus::Received
-    };
-
-    if let Err(err) = diesel::update(crate::schema::mo_messages::dsl::mo_messages)
-        .filter(crate::schema::mo_messages::dsl::id.eq(id))
-        .set(crate::schema::mo_messages::dsl::processing_status.eq(new_status))
-        .execute(&mut db_conn).await {
-        error!("Failed to update message: {}", err);
-        return;
-    }
-}
-
-async fn _process_message(message: crate::models::MOMessage, db_conn: &mut crate::DBConn, client: std::sync::Arc<reqwest::Client>) -> bool {
     let (target, _) = match crate::schema::targets::dsl::targets
         .inner_join(crate::schema::devices::dsl::devices)
         .filter(crate::schema::devices::dsl::imei.eq(&message.imei))
         .select((crate::models::Target::as_select(), crate::models::Device::as_select()))
-        .get_result::<(crate::models::Target, crate::models::Device)>(db_conn).await.optional() {
-        Ok(Some(d)) => d,
-        Ok(None) => {
-            return true;
-        }
-        Err(err) => {
-            error!("Failed to get target: {}", err);
-            return false;
+        .get_result::<(crate::models::Target, crate::models::Device)>(&mut db_conn).await.optional()
+        .with_expected_err(|| "Failed to get target")? {
+        Some(d) => d,
+        None => {
+            set_message_status(message_id, crate::models::ProcessingStatus::Done, &mut db_conn).await?;
+            return Ok(());
         }
     };
 
@@ -120,7 +98,7 @@ async fn _process_message(message: crate::models::MOMessage, db_conn: &mut crate
             }),
             _ => None
         },
-        payload: message.data.map(|d| hex::encode(d)),
+        payload: message.data.map(|d| BASE64_STANDARD.encode(d)),
     };
 
     let mut mac = HmacSha256::new_from_slice(&target.hmac_key).unwrap();
@@ -128,22 +106,38 @@ async fn _process_message(message: crate::models::MOMessage, db_conn: &mut crate
     mac.update(&message_to_send_bytes);
     let mac_result = mac.finalize().into_bytes();
 
-    let res = match client.post(&target.endpoint)
-        .header("Kosmos-MAC", hex::encode(mac_result))
+    let cutoff = chrono::Utc::now() - chrono::Duration::hours(24);
+
+    let res = match HTTP_CLIENT.get().unwrap().post(&target.endpoint)
+        .header("Kosmos-MAC", BASE64_STANDARD.encode(mac_result))
         .header("Content-Type", "application/json")
         .body(message_to_send_bytes)
         .send().await {
         Ok(d) => d,
         Err(err) => {
             warn!("Failed to send to target {}: {}", target.endpoint, err);
-            return false;
+
+            return if cutoff > message.received.and_utc() {
+                set_message_status(message_id, crate::models::ProcessingStatus::Failed, &mut db_conn).await?;
+                Ok(())
+            } else {
+                task.retry_with_countdown(60)
+            }
         }
     };
 
     if !res.status().is_success() {
         warn!("Received error response from target {}", target.endpoint);
-        return false;
+
+        return if cutoff > message.received.and_utc() {
+            set_message_status(message_id, crate::models::ProcessingStatus::Failed, &mut db_conn).await?;
+            Ok(())
+        } else {
+            task.retry_with_countdown(60)
+        }
     }
 
-    true
+    set_message_status(message_id, crate::models::ProcessingStatus::Done, &mut db_conn).await?;
+
+    Ok(())
 }

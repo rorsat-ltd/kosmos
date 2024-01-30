@@ -1,7 +1,26 @@
 use diesel_async::RunQueryDsl;
 use tokio::io::AsyncWriteExt;
 
-pub async fn receive_mt(listen_address: std::net::SocketAddr, db_pool: crate::DBPool) {
+const IRIDIUM_SOURCE_IP: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::new(12, 47, 179, 11));
+
+pub async fn receive_mt(
+    listen_address: std::net::SocketAddr,
+    amqp_addr: String,
+    nat64_prefix: Option<ipnetwork::Ipv6Network>,
+    db_pool: crate::DBPool
+) {
+    let celery_app = match celery::app!(
+        broker = AMQP { amqp_addr },
+        tasks = [crate::worker::process_message],
+        task_routes = [],
+    ).await {
+        Ok(a) => a,
+        Err(err) => {
+            error!("Failed to setup celery: {}", err);
+            return;
+        }
+    };
+
     let listener = match tokio::net::TcpListener::bind(listen_address).await {
         Ok(l) => l,
         Err(err) => {
@@ -21,11 +40,36 @@ pub async fn receive_mt(listen_address: std::net::SocketAddr, db_pool: crate::DB
             }
         };
         info!("Connection received from {}", peer_address);
-        tokio::spawn(process_socket(socket, db_pool.clone()));
+
+        let real_ip = match (peer_address.ip(), nat64_prefix) {
+            (std::net::IpAddr::V4(a), _) => std::net::IpAddr::V4(a),
+            (std::net::IpAddr::V6(a), None) => std::net::IpAddr::V6(a),
+            (std::net::IpAddr::V6(a), Some(n)) => {
+                if n.contains(a) {
+                    let [_, _, _, _, _, _, ab, cd] = a.segments();
+                    let [a, b] = ab.to_be_bytes();
+                    let [c, d] = cd.to_be_bytes();
+                    std::net::IpAddr::V4(std::net::Ipv4Addr::new(a, b, c, d))
+                } else {
+                    std::net::IpAddr::V6(a)
+                }
+            },
+        };
+
+        if real_ip != IRIDIUM_SOURCE_IP {
+            warn!("Connection not from Iridium, dropping");
+            return;
+        }
+
+        tokio::spawn(process_socket(socket, db_pool.clone(), celery_app.clone()));
     }
 }
 
-async fn process_socket(mut socket: tokio::net::TcpStream, db_pool: crate::DBPool){
+async fn process_socket(
+    mut socket: tokio::net::TcpStream,
+    db_pool: crate::DBPool,
+    celery_app: std::sync::Arc<celery::Celery>
+){
     let message = match crate::ie::Message::read(&mut socket).await {
         Ok(m) => m,
         Err(err) => {
@@ -63,6 +107,11 @@ async fn process_socket(mut socket: tokio::net::TcpStream, db_pool: crate::DBPoo
         .values(&message_to_save)
         .execute(&mut db_conn).await {
         error!("Failed to insert message: {}", err);
+        return;
+    }
+
+    if let Err(err) = celery_app.send_task(crate::worker::process_message::new(message_to_save.id)).await {
+        error!("Failed to send task: {}", err);
         return;
     }
 

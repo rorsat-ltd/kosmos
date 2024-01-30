@@ -11,7 +11,6 @@ create type session_status as enum (
 
 create type processing_status as enum (
     'received',
-    'processing',
     'done',
     'failed'
 );

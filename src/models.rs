@@ -30,7 +30,6 @@ impl From<crate::ie::SessionStatus> for SessionStatus {
 #[ExistingTypePath = "crate::schema::sql_types::ProcessingStatus"]
 pub enum ProcessingStatus {
     Received,
-    Processing,
     Done,
     Failed,
 }

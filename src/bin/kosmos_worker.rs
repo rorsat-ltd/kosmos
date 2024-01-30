@@ -2,7 +2,10 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(long, short)]
+    #[arg(long, env, default_value = "amqp://localhost")]
+    amqp_addr: String,
+
+    #[arg(long, env)]
     db_url: String,
 }
 
@@ -18,9 +21,7 @@ async fn main() {
     }
 
     let db_config = diesel_async::pooled_connection::AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(args.db_url);
-    let db_pool = std::sync::Arc::new(
-        diesel_async::pooled_connection::mobc::Pool::new(db_config)
-    );
+    let db_pool = std::sync::Arc::new(mobc::Pool::new(db_config));
 
-    kosmos::worker::run_worker(db_pool).await;
+    kosmos::worker::run_worker(args.amqp_addr, db_pool).await;
 }
