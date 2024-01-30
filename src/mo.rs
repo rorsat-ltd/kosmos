@@ -58,7 +58,7 @@ pub async fn receive_mt(
 
         if real_ip != IRIDIUM_SOURCE_IP {
             warn!("Connection not from Iridium, dropping");
-            return;
+            continue;
         }
 
         tokio::spawn(process_socket(socket, db_pool.clone(), celery_app.clone()));
