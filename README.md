@@ -98,6 +98,8 @@ the target's MAC key. The `Kosmos-Target-ID` header is used to identify which ta
 
 `priority` is an option field, when present its value must be between 1 and 5.
 
+The API server will return the message ID as a UUID in a `text/plain` body.
+
 ## Configuring endpoints
 
 Two tables will be created on startup during the database migration process: `targets` and `devices`
