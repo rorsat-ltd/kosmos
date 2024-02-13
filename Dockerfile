@@ -43,3 +43,4 @@ FROM scratch
 COPY --from=builder --chown=0:0 /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder --chown=0:0 /usr/local/cargo/bin/kosmos_server /
 COPY --from=builder --chown=0:0 /usr/local/cargo/bin/kosmos_worker /
+COPY --from=builder --chown=0:0 /usr/local/cargo/bin/kosmos_http /

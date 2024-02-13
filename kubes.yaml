@@ -1,3 +1,13 @@
+apiVersion: crd.projectcalico.org/v1
+kind: IPPool
+metadata:
+  name: iridium-ip6-ippool
+spec:
+  blockSize: 127
+  cidr: 2001:678:fc8:2::28/125
+  disabled: false
+  nodeSelector: !all()
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -59,6 +69,60 @@ kind: Deployment
 metadata:
   labels:
     app: kosmos
+    part: http
+  name: kosmos-http
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kosmos
+      part: http
+  template:
+    metadata:
+      annotations:
+        cni.projectcalico.org/ipv6pools: '["default-ipv6-ippool"]'
+      labels:
+        app: kosmos
+        part: http
+    spec:
+      containers:
+        - env:
+            - name: RUST_LOG
+              value: "info"
+            - name: LISTEN_ADDRESS
+              value: "[::]:80"
+          envFrom:
+            - secretRef:
+                name: kosmos-config
+          image: as207960/kosmos:(version)
+          imagePullPolicy: IfNotPresent
+          name: server
+          command: ["/kosmos_http"]
+          ports:
+            - containerPort: 80
+              protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kosmos-http
+spec:
+  podSelector:
+    matchLabels:
+      app: kosmos
+      part: http
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kosmos
     part: worker
   name: kosmos-worker
 spec:
@@ -70,7 +134,7 @@ spec:
   template:
     metadata:
       annotations:
-        cni.projectcalico.org/ipv6pools: '["default-ipv6-ippool"]'
+        cni.projectcalico.org/ipv6pools: '["iridium-ip6-ippool"]'
       labels:
         app: kosmos
         part: worker
@@ -117,3 +181,45 @@ spec:
       targetPort: 10800
       protocol: TCP
       name: sbd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kosmos-http
+  labels:
+    app: kosmos
+    part: http
+spec:
+  selector:
+    app: kosmos
+    part: http
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kosmos-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    cert-manager.io/cluster-issuer: gts
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - kosmos.iridium.as207960.ltd.uk
+      secretName: kosmos-tls
+  rules:
+    - host: kosmos.iridium.as207960.ltd.uk
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kosmos-http
+                port:
+                  number: 80

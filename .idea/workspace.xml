@@ -8,7 +8,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d823ab54-2536-48b7-bbab-f85c70a1b758" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kubes.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/kubes.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,7 +80,7 @@
       <updated>1706608796379</updated>
       <workItem from="1706608797767" duration="11960000" />
       <workItem from="1707213833563" duration="594000" />
-      <workItem from="1707770059352" duration="13444000" />
+      <workItem from="1707770059352" duration="14998000" />
     </task>
     <servers />
   </component>
