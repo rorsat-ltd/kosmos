@@ -8,21 +8,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d823ab54-2536-48b7-bbab-f85c70a1b758" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/bin/kosmos_http.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/http.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/2024-01-29-0001-init/up.sql" beforeDir="false" afterPath="$PROJECT_DIR$/migrations/2024-01-29-0001-init/up.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/2024-01-29-0001-targets/up.sql" beforeDir="false" afterPath="$PROJECT_DIR$/migrations/2024-01-29-0001-targets/up.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/bin/kosmos_server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bin/kosmos_server.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ie.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ie.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/mo.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/mo.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/models.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/models.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/schema.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/schema.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/types.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/worker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,7 +79,7 @@
       <updated>1706608796379</updated>
       <workItem from="1706608797767" duration="11960000" />
       <workItem from="1707213833563" duration="594000" />
-      <workItem from="1707770059352" duration="12586000" />
+      <workItem from="1707770059352" duration="13300000" />
     </task>
     <servers />
   </component>

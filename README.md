@@ -3,9 +3,9 @@
 Kosmos handles communication with Iridium's Short Burst Data DirectIP service, and turns these messages into HTTP
 webhooks.
 
-## Running the server
+## Running the DirectIP server
 
-The server opens a TCP socket to accept connections from Iridium's ground stations.
+The DirectIP server opens a TCP socket to accept connections from Iridium's ground stations.
 
 ```shell
 kosmos_server --db-url postgres://localhost/kosmos --amqp-addr amqp://localhost --listen_addr [::]:10800
@@ -15,10 +15,22 @@ Optionally the flag `--nat64-prefix` can be passed to allow the ACL to work corr
 
 All configuration options can also be passed as environment variables. Run with `--help` for more information.
 
+## Running the API server
+
+The API server accepts HTTP requests to send MT messages to Iridium.
+
+```shell
+kosmos_http --db-url postgres://localhost/kosmos --amqp-addr amqp://localhost --listen_addr [::]:8080
+```
+
+All configuration options can also be passed as environment variables. Run with `--help` for more information.
+
 ## Running the worker
 
 The worker forwards messages to HTTP endpoints, and implements retries on these deliveries. Messages that can't be 
 delivered for 24 hours will be marked as failed.
+
+The worker also talks to Iridium to deliver MT messages. Its IP address will have to be added to Iridium's firewall.
 
 ```shell
 kosmos_worker --db-url postgres://localhost/kosmos --amqp-addr amqp://localhost
@@ -32,9 +44,10 @@ Messages are sent as HTTP POST JSON with the following format:
 
 ```json
 {
+  "type": "mo_message",
   "id": "UUID",
   "header": {
-    "imei": "IMEI string",
+    "imei": "000000000000000",
     "cdr_reference": 0,
     "session_status": "normal/too_large/unacceptable_location",
     "mo_msn": 0,
@@ -50,10 +63,40 @@ Messages are sent as HTTP POST JSON with the following format:
 }
 ```
 
+Updates on the delivery status of MT messages have the following format
+
+```json
+{
+  "type": "mt_message_status",
+  "id": "UUID",
+  "status": "delivered/invalid_imei/payload_size_exceeded/message_queue_full/resources_unavailable"
+}
+```
+
 ## Webhook security
 
 All webhook requests contain a `Kosmos-MAC` header which is a Base64 encoded SHA-256 HMAC over the POST body using
-the MAC key from the database.
+the target's MAC key.
+
+## MT API
+
+```http request
+POST /submit_mt
+Kosmos-Target-ID: UUID
+Kosmos-MAC: Base64 encoded SHA-256 MAC
+Content-Type: application/json
+
+{
+  "imei": "000000000000000",
+  "payload": "base64 encoded data",
+  "priority": 5
+}
+```
+
+All requests must contain a `Kosmos-MAC` header which is a Base64 encoded SHA-256 HMAC over the POST body using
+the target's MAC key. The `Kosmos-Target-ID` header is used to identify which target signed this request.
+
+`priority` is an option field, when present its value must be between 1 and 5.
 
 ## Configuring endpoints
 
