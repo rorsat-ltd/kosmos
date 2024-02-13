@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use chrono::prelude::*;
 
 #[derive(Debug)]
@@ -7,6 +8,18 @@ pub enum Error {
     Io(std::io::Error)
 }
 
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedProtocolRevision => f.write_str("unsupported protocol revision"),
+            Self::FormatError(e) => f.write_fmt(format_args!("format error: {}", e)),
+            Self::Io(e) => f.write_fmt(format_args!("I/O error: {}", e)),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Error::Io(value)
@@ -14,10 +27,51 @@ impl From<std::io::Error> for Error {
 }
 
 pub struct Message {
-    pub header: Header,
+    pub header: MOHeader,
     pub payload: Option<Vec<u8>>,
     pub location_information: Option<LocationInformation>,
     pub extra: Vec<Element>,
+}
+
+impl Message {
+    pub fn from_pm(pm: ProtocolMessage) -> Result<Self, Error> {
+        let mut header = None;
+        let mut payload = None;
+        let mut location_information = None;
+        let mut extra = vec![];
+
+        for element in pm.elements {
+            if element.id == 0x01 {
+                if header.is_some() {
+                    return Err(Error::FormatError("Duplicate header".to_string()));
+                }
+                header = Some(MOHeader::decode(&element.data)?);
+            } else if element.id == 0x02 {
+                if payload.is_some() {
+                    return Err(Error::FormatError("Duplicate payload".to_string()));
+                }
+                payload = Some(element.data);
+            } else if element.id == 0x03 {
+                if location_information.is_some() {
+                    return Err(Error::FormatError("Duplicate location information".to_string()));
+                }
+                location_information = Some(LocationInformation::decode(&element.data)?);
+            } else {
+                extra.push(element);
+            }
+        }
+
+        if header.is_none() {
+            return Err(Error::FormatError("Missing header".to_string()));
+        }
+
+        Ok(Self {
+            header: header.unwrap(),
+            payload,
+            location_information,
+            extra,
+        })
+    }
 }
 
 impl std::fmt::Debug for Message {
@@ -39,12 +93,50 @@ impl std::fmt::Debug for Message {
 }
 
 #[derive(Debug)]
+pub struct ResponseMessage {
+    pub confirmation: MTConfirmation,
+    pub extra: Vec<Element>,
+}
+
+impl ResponseMessage {
+    pub fn from_pm(pm: ProtocolMessage) -> Result<Self, Error> {
+        let mut confirmation = None;
+        let mut extra = vec![];
+
+        for element in pm.elements {
+            if element.id == 0x44 {
+                if confirmation.is_some() {
+                    return Err(Error::FormatError("Duplicate confirmation".to_string()));
+                }
+                confirmation = Some(MTConfirmation::decode(&element.data)?);
+            } else {
+                extra.push(element);
+            }
+        }
+
+        if confirmation.is_none() {
+            return Err(Error::FormatError("Missing confirmation".to_string()));
+        }
+
+        Ok(Self {
+            confirmation: confirmation.unwrap(),
+            extra,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ProtocolMessage {
+    pub elements: Vec<Element>
+}
+
+#[derive(Debug)]
 pub struct Element {
     pub id: u8,
     pub data: Vec<u8>
 }
 #[derive(Debug)]
-pub struct Header {
+pub struct MOHeader {
     pub cdr_reference: u32,
     pub imei: String,
     pub session_status: SessionStatus,
@@ -74,11 +166,58 @@ pub struct LocationInformation {
 }
 
 #[derive(Debug)]
-pub struct Confirmation {
+pub struct MOConfirmation {
     pub status: bool
 }
 
-impl Message {
+#[derive(Debug)]
+pub struct MTHeader {
+    pub client_message_id: u32,
+    pub imei: String,
+    pub flush_mt_queue: bool,
+    pub send_ring_alert: bool,
+    pub update_ssd_location: bool,
+    pub high_priority_message: bool,
+    pub assign_mtmsn: bool,
+}
+
+#[derive(Debug)]
+pub struct MTConfirmation {
+    pub client_message_id: u32,
+    pub imei: String,
+    pub auto_id_reference: u32,
+    pub message_status: MessageStatus,
+}
+
+#[repr(i16)]
+#[derive(Debug)]
+pub enum MessageStatus {
+    SuccessfulNoPayload = 0,
+    Successful(u8),
+    InvalidIMEI = -1,
+    UnknownIMEI = -2,
+    TooLarge = -3,
+    PayloadExpected = -4,
+    QueueFull = -5,
+    ResourcesUnavailable = - 6,
+    ProtocolViolation = -7,
+    RingAlertsDisabled = -8,
+    UnattachedIMEI = -9,
+    IPBlocked = -10,
+    MTMSNOutOfRange = -11,
+}
+
+#[derive(Debug)]
+pub struct MTPayload {
+    pub data: Vec<u8>
+}
+
+#[derive(Debug)]
+pub struct MTPriority {
+    pub level: u16,
+}
+
+impl ProtocolMessage {
     pub async fn read<R: tokio::io::AsyncRead + Unpin>(read: &mut R) -> Result<Self, Error> {
         use tokio::io::AsyncReadExt;
 
@@ -98,43 +237,29 @@ impl Message {
             elements.push(Element::read(&mut message_data_cursor)?);
         }
 
-        let mut header = None;
-        let mut payload = None;
-        let mut location_information = None;
-        let mut extra = vec![];
-
-        for element in elements {
-            if element.id == 0x01 {
-                if header.is_some() {
-                    return Err(Error::FormatError("Duplicate header".to_string()));
-                }
-                header = Some(Header::decode(&element.data)?);
-            } else if element.id == 0x02 {
-                if payload.is_some() {
-                    return Err(Error::FormatError("Duplicate payload".to_string()));
-                }
-                payload = Some(element.data);
-            } else if element.id == 0x03 {
-                if location_information.is_some() {
-                    return Err(Error::FormatError("Duplicate location information".to_string()));
-                }
-                location_information = Some(LocationInformation::decode(&element.data)?);
-            } else {
-                extra.push(element);
-            }
-        }
-
-        if header.is_none() {
-            return Err(Error::FormatError("Missing header".to_string()));
-        }
-
-
-        Ok(Self {
-            header: header.unwrap(),
-            payload,
-            location_information,
-            extra,
+        Ok(ProtocolMessage {
+            elements
         })
+    }
+
+    pub async fn write<W: tokio::io::AsyncWrite + Unpin>(&self, write: &mut W) -> Result<(), Error> {
+        use tokio::io::AsyncWriteExt;
+
+        let mut message_data_cursor = std::io::Cursor::new(vec![]);
+        for element in &self.elements {
+            element.write(&mut message_data_cursor)?;
+        }
+
+        let message_data = message_data_cursor.into_inner();
+
+        // Protocol revision
+        write.write_u8(1).await?;
+        // Data length
+        write.write_u16(message_data.len() as u16).await?;
+        // Data
+        write.write_all(&message_data).await?;
+
+        Ok(())
     }
 }
 
@@ -152,9 +277,19 @@ impl Element {
             data: element_data
         })
     }
+
+    fn write<W: std::io::Write>(&self, write: &mut W) -> Result<(), Error> {
+        use byteorder::{WriteBytesExt, BigEndian};
+
+        write.write_u8(self.id)?;
+        write.write_u16::<BigEndian>(self.data.len() as u16)?;
+        write.write_all(&self.data)?;
+
+        Ok(())
+    }
 }
 
-impl Header {
+impl MOHeader {
     fn decode(data: &[u8]) -> Result<Self, Error> {
         if data.len() != 28 {
             return Err(Error::FormatError("Invalid header length".to_string()));
@@ -227,8 +362,101 @@ impl LocationInformation {
     }
 }
 
-impl Confirmation {
-    pub fn encode(&self) -> Vec<u8> {
-        vec![0x05, 0x00, 0x01, if self.status { 0x01 } else { 0x00 }]
+impl MOConfirmation {
+    pub fn to_element(&self) -> Element {
+        Element {
+            id: 0x05,
+            data: vec![if self.status { 0x01 } else { 0x00 }]
+        }
+    }
+}
+
+impl MTHeader {
+    pub fn to_element(&self) -> Element {
+        use byteorder::{WriteBytesExt, BigEndian};
+        use std::io::Write;
+
+        let mut data = std::io::Cursor::new(vec![]);
+
+        let mut flags = 0;
+
+        if self.flush_mt_queue {
+            flags |= 1;
+        }
+        if self.send_ring_alert {
+            flags |= 2;
+        }
+        if self.update_ssd_location {
+            flags |= 8;
+        }
+        if self.high_priority_message {
+            flags |= 16;
+        }
+        if self.assign_mtmsn {
+            flags |= 32;
+        }
+
+        data.write_u32::<BigEndian>(self.client_message_id).unwrap();
+        data.write_all(&self.imei.as_bytes()[0..15]).unwrap();
+        data.write_u16::<BigEndian>(flags).unwrap();
+
+        Element {
+            id: 0x42,
+            data: data.into_inner()
+        }
+    }
+}
+
+impl MTPayload {
+    pub fn to_element(self) -> Element {
+        Element {
+            id: 0x42,
+            data: self.data.clone()
+        }
+    }
+}
+
+impl MTPriority {
+    pub fn to_element(&self) -> Element {
+        Element {
+            id: 0x46,
+            data: self.level.to_be_bytes().to_vec()
+        }
+    }
+}
+
+impl MessageStatus {
+    fn from_i8(val: i8) -> Result<Self, Error> {
+        match val {
+            0 => Ok(Self::SuccessfulNoPayload),
+            x if 1 <= x && x <= 50 => Ok(Self::Successful(x as u8)),
+            -1 => Ok(Self::InvalidIMEI),
+            -2 => Ok(Self::UnknownIMEI),
+            -3 => Ok(Self::TooLarge),
+            -4 => Ok(Self::PayloadExpected),
+            -5 => Ok(Self::QueueFull),
+            -6 => Ok(Self::ResourcesUnavailable),
+            -7 => Ok(Self::ProtocolViolation),
+            -8 => Ok(Self::RingAlertsDisabled),
+            -9 => Ok(Self::UnattachedIMEI),
+            -10 => Ok(Self::IPBlocked),
+            -11 => Ok(Self::MTMSNOutOfRange),
+            _ => Err(Error::FormatError("Invalid message status".to_string()))
+        }
+    }
+}
+
+impl MTConfirmation {
+    fn decode(data: &[u8]) -> Result<Self, Error> {
+        if data.len() != 25 {
+            return Err(Error::FormatError("Invalid confirmation length".to_string()));
+        }
+
+        Ok(Self {
+            client_message_id: u32::from_be_bytes(TryFrom::try_from(&data[0..4]).unwrap()),
+            imei: String::from_utf8_lossy(&data[4..19]).to_string(),
+            auto_id_reference: u32::from_be_bytes(TryFrom::try_from(&data[19..23]).unwrap()),
+            message_status: MessageStatus::from_i8(data[24] as i8)?
+        })
     }
 }

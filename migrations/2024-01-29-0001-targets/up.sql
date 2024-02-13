@@ -8,4 +8,6 @@ create table devices (
     id uuid primary key,
     imei char(15) not null,
     target uuid references targets(id) not null
-)
+);
+
+alter table mt_messages add column target uuid references targets(id);

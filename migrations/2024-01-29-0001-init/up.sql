@@ -28,11 +28,11 @@ create table mo_messages (
     cep_radius int4 null,
     data bytea null,
     processing_status processing_status not null,
-    received timestamp not null,
-    last_processed timestamp null
+    received timestamp not null
 );
 
 create type message_status as enum (
+    'delivered',
     'invalid_imei',
     'payload_size_exceeded',
     'message_queue_full',
@@ -43,8 +43,8 @@ create table mt_messages (
     id uuid primary key,
     imei char(15) not null,
     priority smallint not null,
-    data bytea null,
+    data bytea not null,
     message_status message_status null,
     processing_status processing_status not null,
-    last_processed timestamp not null
+    received timestamp not null
 )

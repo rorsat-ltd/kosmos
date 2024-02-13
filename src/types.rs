@@ -1,6 +1,15 @@
 use chrono::{DateTime, Utc};
 
 #[derive(serde::Serialize)]
+#[serde(tag = "type")]
+pub enum WebhookMessage {
+    #[serde(rename = "mo_message")]
+    MOMessage(MOMessage),
+    #[serde(rename = "mt_message_status")]
+    MTMessageStatus(MTMessageStatus),
+}
+
+#[derive(serde::Serialize)]
 pub struct MOMessage {
     pub id: uuid::Uuid,
     pub header: MOHeader,
@@ -33,4 +42,32 @@ pub enum SessionStatus {
     TooLarge,
     #[serde(rename = "unacceptable_location")]
     UnacceptableLocation,
+}
+
+#[derive(serde::Serialize)]
+pub struct MTMessageStatus {
+    pub id: uuid::Uuid,
+    pub status: MessageStatus
+}
+
+#[derive(serde::Serialize)]
+pub enum MessageStatus {
+    #[serde(rename = "delivered")]
+    Delivered,
+    #[serde(rename = "invalid_imei")]
+    InvalidIMEI,
+    #[serde(rename = "payload_size_exceeded")]
+    PayloadSizeExceeded,
+    #[serde(rename = "message_queue_full")]
+    MessageQueueFull,
+    #[serde(rename = "resources_unavailable")]
+    ResourcesUnavailable,
+}
+
+#[derive(serde::Deserialize)]
+pub struct MTMessage {
+    pub imei: String,
+    pub payload: String,
+    #[serde(default)]
+    pub priority: Option<u8>,
 }

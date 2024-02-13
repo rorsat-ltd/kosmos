@@ -2,14 +2,11 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(long, env, default_value = "[::]:10800")]
+    #[arg(long, env, default_value = "[::]:80")]
     listen_address: std::net::SocketAddr,
 
     #[arg(long, env, default_value = "amqp://localhost")]
     amqp_addr: String,
-
-    #[arg(long, env)]
-    nat64_prefix: Option<ipnetwork::Ipv6Network>,
 
     #[arg(long, env)]
     db_url: String,
@@ -30,5 +27,5 @@ async fn main() {
     let db_config = diesel_async::pooled_connection::AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(args.db_url);
     let db_pool = std::sync::Arc::new(mobc::Pool::new(db_config));
 
-    kosmos::mo::receive_mo(args.listen_address, args.amqp_addr, args.nat64_prefix, db_pool).await;
+    kosmos::http::run(args.listen_address, args.amqp_addr, db_pool).await;
 }

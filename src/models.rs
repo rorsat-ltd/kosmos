@@ -26,6 +26,16 @@ impl From<crate::ie::SessionStatus> for SessionStatus {
     }
 }
 
+#[derive(Debug, diesel_derive_enum::DbEnum)]
+#[ExistingTypePath = "crate::schema::sql_types::MessageStatus"]
+pub enum MessageStatus {
+    Delivered,
+    InvalidImei,
+    PayloadSizeExceeded,
+    MessageQueueFull,
+    ResourcesUnavailable,
+}
+
 #[derive(Debug, diesel_derive_enum::DbEnum, PartialEq)]
 #[ExistingTypePath = "crate::schema::sql_types::ProcessingStatus"]
 pub enum ProcessingStatus {
@@ -51,7 +61,20 @@ pub struct MOMessage {
     pub data: Option<Vec<u8>>,
     pub processing_status: ProcessingStatus,
     pub received: chrono::NaiveDateTime,
-    pub last_processed: Option<chrono::NaiveDateTime>,
+}
+
+#[derive(diesel::Queryable, diesel::Selectable, diesel::Insertable)]
+#[diesel(table_name = crate::schema::mt_messages)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct MTMessage {
+    pub id: uuid::Uuid,
+    pub imei: String,
+    pub priority: i16,
+    pub data: Vec<u8>,
+    pub message_status: Option<MessageStatus>,
+    pub processing_status: ProcessingStatus,
+    pub received: chrono::NaiveDateTime,
+    pub target: uuid::Uuid,
 }
 
 #[derive(diesel::Queryable, diesel::Selectable, diesel::Insertable)]
@@ -59,8 +82,8 @@ pub struct MOMessage {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Target {
     pub id: uuid::Uuid,
-    pub endpoint: String,
     pub hmac_key: Vec<u8>,
+    pub endpoint: String,
 }
 
 #[derive(diesel::Queryable, diesel::Selectable, diesel::Insertable)]

@@ -1,9 +1,7 @@
 use diesel_async::RunQueryDsl;
-use tokio::io::AsyncWriteExt;
 
-const IRIDIUM_SOURCE_IP: std::net::IpAddr = std::net::IpAddr::V4(std::net::Ipv4Addr::new(12, 47, 179, 11));
 
-pub async fn receive_mt(
+pub async fn receive_mo(
     listen_address: std::net::SocketAddr,
     amqp_addr: String,
     nat64_prefix: Option<ipnetwork::Ipv6Network>,
@@ -56,7 +54,7 @@ pub async fn receive_mt(
         };
         info!("Connection received from {} ({})", std::net::SocketAddr::new(real_ip, peer_address.port()), peer_address);
 
-        if real_ip != IRIDIUM_SOURCE_IP {
+        if real_ip != crate::IRIDIUM_SOURCE_IP {
             warn!("Connection not from Iridium, dropping");
             continue;
         }
@@ -69,12 +67,39 @@ async fn process_socket(
     mut socket: tokio::net::TcpStream,
     db_pool: crate::DBPool,
     celery_app: std::sync::Arc<celery::Celery>
-){
-    let message = match crate::ie::Message::read(&mut socket).await {
+) {
+    let status = _process_socket(&mut socket, db_pool, celery_app).await;
+
+    let confirmation = crate::ie::MOConfirmation {
+        status,
+    };
+    let confirmation_elm = confirmation.to_element();
+    let confirmation_pm = crate::ie::ProtocolMessage {
+        elements: vec![confirmation_elm]
+    };
+    if let Err(err) = confirmation_pm.write(&mut socket).await {
+        warn!("Failed to send response: {:?}", err);
+    }
+}
+
+async fn _process_socket(
+    socket: &mut tokio::net::TcpStream,
+    db_pool: crate::DBPool,
+    celery_app: std::sync::Arc<celery::Celery>
+) -> bool {
+    let protocol_message = match crate::ie::ProtocolMessage::read(socket).await {
+        Ok(m) => m,
+        Err(err) => {
+            warn!("Failed to decode protocol message: {:?}", err);
+            return false;
+        }
+    };
+
+    let message = match crate::ie::Message::from_pm(protocol_message) {
         Ok(m) => m,
         Err(err) => {
             warn!("Failed to decode message: {:?}", err);
-            return;
+            return false;
         }
     };
     debug!("Received message: {:#?}", message);
@@ -93,34 +118,26 @@ async fn process_socket(
         data: message.payload,
         processing_status: crate::models::ProcessingStatus::Received,
         received: chrono::Utc::now().naive_utc(),
-        last_processed: None,
     };
 
     let mut db_conn = match db_pool.get().await {
         Ok(c) => c,
         Err(err) => {
             error!("Failed to get DB connection: {}", err);
-            return;
+            return false;
         }
     };
     if let Err(err) = diesel::insert_into(crate::schema::mo_messages::dsl::mo_messages)
         .values(&message_to_save)
         .execute(&mut db_conn).await {
         error!("Failed to insert message: {}", err);
-        return;
+        return false;
     }
 
     if let Err(err) = celery_app.send_task(crate::worker::process_message::new(message_to_save.id)).await {
         error!("Failed to send task: {}", err);
-        return;
+        return false;
     }
 
-    let confirmation = crate::ie::Confirmation {
-        status: true
-    }.encode();
-    let mut resp = vec![0x01, confirmation.len() as u8];
-    resp.extend(confirmation.into_iter());
-    if let Err(err) = socket.write_all(&resp).await {
-        warn!("Failed to send response: {:?}", err);
-    }
+    true
 }

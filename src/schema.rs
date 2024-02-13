@@ -43,7 +43,6 @@ diesel::table! {
         data -> Nullable<Bytea>,
         processing_status -> ProcessingStatus,
         received -> Timestamp,
-        last_processed -> Nullable<Timestamp>,
     }
 }
 
@@ -57,10 +56,11 @@ diesel::table! {
         #[max_length = 15]
         imei -> Bpchar,
         priority -> Int2,
-        data -> Nullable<Bytea>,
+        data -> Bytea,
         message_status -> Nullable<MessageStatus>,
         processing_status -> ProcessingStatus,
-        last_processed -> Timestamp,
+        received -> Timestamp,
+        target -> Uuid,
     }
 }
 
@@ -73,6 +73,7 @@ diesel::table! {
 }
 
 diesel::joinable!(devices -> targets (target));
+diesel::joinable!(mt_messages -> targets (target));
 
 diesel::allow_tables_to_appear_in_same_query!(
     devices,
