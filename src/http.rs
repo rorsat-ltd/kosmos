@@ -136,7 +136,7 @@ pub async fn run(listen_addr: std::net::SocketAddr, amqp_addr: String, db_pool: 
         broker = AMQP { amqp_addr },
         tasks = [],
         task_routes = [],
-        acks_late = true,
+        acks_late = false,
     ).await {
         Ok(a) => a,
         Err(err) => {

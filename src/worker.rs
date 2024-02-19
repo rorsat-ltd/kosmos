@@ -20,7 +20,7 @@ pub async fn run_worker(amqp_addr: String, db_pool: crate::DBPool) {
         broker = AMQP { amqp_addr },
         tasks = [process_message, deliver_mt],
         task_routes = [],
-        acks_late = true,
+        acks_late = false,
     ).await {
         Ok(a) => a,
         Err(err) => {
@@ -245,6 +245,7 @@ pub async fn deliver_mt(task: &Self, message_id: uuid::Uuid) -> TaskResult<()> {
                 set_mt_processing_status(message_id, crate::models::ProcessingStatus::Failed, &mut db_conn).await?;
                 set_mt_message_status(message_id, crate::models::MessageStatus::MessageQueueFull, &mut db_conn).await?;
             } else {
+                info!("Device queue full, retrying later");
                 return task.retry_with_countdown(60);
             }
         }
@@ -303,6 +304,7 @@ pub async fn send_mt_status(task: &Self, message_id: uuid::Uuid) -> TaskResult<(
     });
 
     if !send_webhook(&target, &message_to_send).await {
+        info!("Failed to send status webhook, retrying later");
         return task.retry_with_countdown(60);
     }
 
