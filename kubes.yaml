@@ -132,7 +132,7 @@ spec:
       containers:
         - env:
             - name: RUST_LOG
-              value: "info"
+              value: "trace"
           envFrom:
             - secretRef:
                 name: kosmos-config

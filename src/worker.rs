@@ -203,7 +203,7 @@ pub async fn deliver_mt(task: &Self, message_id: uuid::Uuid) -> TaskResult<()> {
         elements
     };
 
-    trace!("Sending message: {:?}", protocol_message);
+    trace!("Sending message: {:02x?}", protocol_message);
 
     protocol_message.write(&mut socket).await
         .with_expected_err(|| "Failed to write protocol message to socket")?;
@@ -213,7 +213,7 @@ pub async fn deliver_mt(task: &Self, message_id: uuid::Uuid) -> TaskResult<()> {
     let response_message = crate::ie::ResponseMessage::from_pm(response_protocol_message)
         .with_unexpected_err(|| "Failed to decode response message")?;
 
-    trace!("Got response: {:?}", response_message);
+    trace!("Got response: {:02x?}", response_message);
 
     if response_message.confirmation.client_message_id != header.client_message_id ||
         response_message.confirmation.imei != header.imei {

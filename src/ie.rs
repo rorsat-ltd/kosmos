@@ -401,7 +401,7 @@ impl MTHeader {
         data.write_u16::<BigEndian>(flags).unwrap();
 
         Element {
-            id: 0x42,
+            id: 0x41,
             data: data.into_inner()
         }
     }
