@@ -14,7 +14,7 @@ struct Args {
     #[arg(long, env)]
     db_url: String,
 
-    #[arg(long, env)]
+    #[arg(long, env, value_delimiter = ',')]
     source_ips: Vec<std::net::IpAddr>,
 }
 
