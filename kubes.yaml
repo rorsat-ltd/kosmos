@@ -1,4 +1,14 @@
 apiVersion: apps/v1
+kind: ConfigMap
+metadata:
+  name: kosmos-config
+data:
+  RUST_LOG: "info"
+  LISTEN_ADDRESS: "[::]:10800"
+  NAT64_PREFIX: "2a0d:1a40:7900:6::/64"
+  SOURCE_IPS: "12.47.179.11,81.187.83.184"
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
@@ -20,14 +30,9 @@ spec:
         part: server
     spec:
       containers:
-        - env:
-            - name: RUST_LOG
-              value: "info"
-            - name: LISTEN_ADDRESS
-              value: "[::]:10800"
-            - name: NAT64_PREFIX
-              value: "2a0d:1a40:7900:6::/64"
-          envFrom:
+        - envFrom:
+            - configMap:
+                name: kosmos-config
             - secretRef:
                 name: kosmos-config
           image: as207960/kosmos:(version)

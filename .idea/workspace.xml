@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="AutoImportSettings">
-    <option name="autoReloadType" value="SELECTIVE" />
+    <option name="autoReloadType" value="ALL" />
   </component>
   <component name="CargoProjects">
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d823ab54-2536-48b7-bbab-f85c70a1b758" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/kubes.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/kubes.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/http.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/http.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/worker.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/worker.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/bin/kosmos_server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/bin/kosmos_server.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/mo.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/mo.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,6 +48,7 @@
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;root&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/q/Documents/kosmos/src/bin&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -55,6 +57,7 @@
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.first.attach.projects.stats&quot;: &quot;true&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -84,7 +87,9 @@
       <workItem from="1707770059352" duration="15614000" />
       <workItem from="1707853643167" duration="1278000" />
       <workItem from="1708170848286" duration="593000" />
-      <workItem from="1708358766257" duration="2335000" />
+      <workItem from="1708358766257" duration="4107000" />
+      <workItem from="1717008996843" duration="189000" />
+      <workItem from="1717009622672" duration="729000" />
     </task>
     <servers />
   </component>

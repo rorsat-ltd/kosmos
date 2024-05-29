@@ -1,11 +1,13 @@
 use diesel_async::RunQueryDsl;
+use rocket::form::validate::Contains;
 
 
 pub async fn receive_mo(
     listen_address: std::net::SocketAddr,
     amqp_addr: String,
     nat64_prefix: Option<ipnetwork::Ipv6Network>,
-    db_pool: crate::DBPool
+    source_ips: Vec<std::net::IpAddr>,
+    db_pool: crate::DBPool,
 ) {
     let celery_app = match celery::app!(
         broker = AMQP { amqp_addr },
@@ -54,7 +56,7 @@ pub async fn receive_mo(
         };
         info!("Connection received from {} ({})", std::net::SocketAddr::new(real_ip, peer_address.port()), peer_address);
 
-        if real_ip != crate::IRIDIUM_SOURCE_IP {
+        if (source_ips.is_empty() && real_ip != crate::IRIDIUM_SOURCE_IP) || !source_ips.contains(real_ip) {
             warn!("Connection not from Iridium, dropping");
             continue;
         }

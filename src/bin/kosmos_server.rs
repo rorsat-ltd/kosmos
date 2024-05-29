@@ -13,6 +13,9 @@ struct Args {
 
     #[arg(long, env)]
     db_url: String,
+
+    #[arg(long, env)]
+    source_ips: Vec<std::net::IpAddr>,
 }
 
 #[tokio::main]
@@ -30,5 +33,8 @@ async fn main() {
     let db_config = diesel_async::pooled_connection::AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(args.db_url);
     let db_pool = std::sync::Arc::new(mobc::Pool::new(db_config));
 
-    kosmos::mo::receive_mo(args.listen_address, args.amqp_addr, args.nat64_prefix, db_pool).await;
+    kosmos::mo::receive_mo(
+        args.listen_address, args.amqp_addr, args.nat64_prefix, args.source_ips,
+        db_pool
+    ).await;
 }
