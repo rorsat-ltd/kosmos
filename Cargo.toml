@@ -3,7 +3,7 @@ name = "kosmos"
 version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/AS207960/kosmos"
-license = "MIT"
+license = "EUPL-1.2"
 authors = ["Q Misell <q@as207960.net>"]
 
 [profile.release]
